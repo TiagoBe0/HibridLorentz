@@ -162,10 +162,17 @@ def psi_on_hbar_grid(t, phases=VALENTINI_PHASES):
     return np.einsum('mn,mnij->ij', c, _PHI_HB)
 
 
-def compute_hbar_box(qx, qy, psi_grid, epsilon=EPSILON_CG):
+def compute_hbar_box(qx, qy, psi_grid, epsilon=EPSILON_CG, bias_correct=True):
     """
     Valentini H̄ = Σ_cells ε² ρ̄_cell ln(ρ̄_cell / |ψ̄|²_cell).
     Coarse-grained over n_cg×n_cg cells on [0,π]².
+
+    bias_correct : Miller–Madow correction for the empirical KL divergence.
+        E[Ĥ_hist] = H_true + (K_eff − 1)/(2 N_p) + O(1/N_p²),
+        where K_eff is the number of cells with both ρ̂ > 0 and |ψ|² > 0
+        and N_p is the number of particles.  Subtracting this leading bias
+        removes the dominant finite-Np artifact (which previously dressed
+        τ_eff with a spurious ~K/(2 N_p) tail offset).
     """
     n_cg  = max(4, round(np.pi / epsilon))
     eps_a = np.pi / n_cg
@@ -183,6 +190,12 @@ def compute_hbar_box(qx, qy, psi_grid, epsilon=EPSILON_CG):
     mask  = (rho_h > 1e-15) & (psi2_cg > 1e-15)
     ratio = np.where(mask, rho_h / psi2_cg, 1.0)
     hbar  = float(np.sum(np.where(mask, rho_h * np.log(ratio) * eps_a**2, 0.0)))
+
+    if bias_correct:
+        K_eff = int(mask.sum())
+        N_p   = len(qx)
+        if N_p > 0 and K_eff > 1:
+            hbar -= (K_eff - 1) / (2.0 * N_p)
     return max(hbar, 0.0)
 
 
@@ -353,8 +366,15 @@ def run_box_AL(lam, tau_rad=TAU_RAD_DEFAULT,
     if phases is None:
         phases = VALENTINI_PHASES
 
-    hbar_runs = []
-    t_record  = None
+    # Safety clip on the drift speed.  Mirrors the clip used in run_stationary_AL.
+    # v_BM and v_osm both diverge as |ψ|² → 0 near nodes of ψ.  With analytic
+    # ψ on a 16-mode superposition this is exceptionally rare, but a hard cap
+    # avoids the reflection routine breaking for outliers when N_p is large.
+    V_CLIP = 200.0
+
+    hbar_runs       = []
+    d_ald_per_real  = []
+    t_record        = None
 
     for r in range(n_realizations):
         print(f"  λ={lam:.4f}  τ_rad={tau_rad:.4f}  r={r+1}/{n_realizations}",
@@ -374,6 +394,7 @@ def run_box_AL(lam, tau_rad=TAU_RAD_DEFAULT,
         else:
             D_ald = compute_D_ALD(zpf, lam) if lam > 0 else 0.0
             print(f"    D_ALD = {D_ald:.6f}", flush=True)
+        d_ald_per_real.append(D_ald)
 
         # LAMMPS instance (position storage for Clementina HPC)
         lmp = None
@@ -431,7 +452,11 @@ def run_box_AL(lam, tau_rad=TAU_RAD_DEFAULT,
                         vx += vox
                         vy += voy
 
-            # First-order Euler + hard-wall reflection
+            # First-order Euler + hard-wall reflection.
+            # Clip drift speed so a single rare nodal excursion cannot break
+            # the reflection routine (|Δq| > π would fall outside [0,π]).
+            np.clip(vx, -V_CLIP, V_CLIP, out=vx)
+            np.clip(vy, -V_CLIP, V_CLIP, out=vy)
             qx, qy = reflect_in_box(qx + DT * vx, qy + DT * vy)
             if use_lammps:
                 lmp_scatter_positions(lmp, qx, qy)
@@ -473,15 +498,19 @@ def run_box_AL(lam, tau_rad=TAU_RAD_DEFAULT,
     print(f"    τ_eff = {tau_eff:.3f}   1/τ = {inv_tau:.4f}   R² = {R2:.3f}",
           flush=True)
 
+    d_arr = np.array(d_ald_per_real)
     results = {
         "lambda":           lam,
         "tau_rad":          tau_rad,
-        "D_ALD":            D_ald,
+        "D_ALD":            float(d_arr.mean()),
+        "D_ALD_std":        float(d_arr.std()),
+        "D_ALD_per_real":   d_arr.tolist(),
         "epsilon_cg":       epsilon,
         "n_particles":      n_particles,
         "n_realizations":   n_realizations,
         "omega_max":        omega_max,
         "t_final":          float(T_FINAL),
+        "hbar_bias_corrected": True,
         "times":            t_arr.tolist(),
         "hbar_mean":        hbar_mean.tolist(),
         "hbar_std":         hbar_std.tolist(),

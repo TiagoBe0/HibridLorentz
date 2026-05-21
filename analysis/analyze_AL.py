@@ -145,10 +145,10 @@ def fig_tau_comparison(al_dir="results_AL_box",
         records.sort(key=lambda x: x["lam"])
         return records
 
-    # Paper-1: results_box_om3/box_lam*.json
-    p1 = collect("results_box_om3/box_lam*om3.json")
-    # ALD: results_AL_box/AL_lam*.json (all — includes both modes)
-    al = collect("results_AL_box/AL_lam*.json")
+    # Paper-1: <paper1_dir>/box_lam*.json
+    p1 = collect(f"{paper1_dir}/box_lam*om3.json")
+    # ALD: <al_dir>/AL_lam*.json
+    al = collect(f"{al_dir}/AL_lam*.json")
 
     def plot_series(ax, data, label, color, marker="o"):
         lams    = np.array([d["lam"] for d in data if np.isfinite(d["tau_m"])])
