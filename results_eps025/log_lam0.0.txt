@@ -1,6 +1,0 @@
-  lambda=0.0000  realization 1/5
-  lambda=0.0000  realization 2/5
-  lambda=0.0000  realization 3/5
-  lambda=0.0000  realization 4/5
-  lambda=0.0000  realization 5/5
-  -> results_eps025/results_lam0.0000.json   KS=0.1804±0.0088

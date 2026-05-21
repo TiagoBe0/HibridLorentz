@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*~
+
+# LaTeX build
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+
+# LAMMPS scratch
+log.lammps
+log.cite
+
+# SLURM
+logs/
+slurm-*.out
+*.err
+
+# Heavy production outputs (regenerable, kept off git)
+results/paper2_fase3/prod_Np5000/
+results/paper2_fase3/prod_Np10000/
+results/paper2_fase3/npconv/
+
+# Stale top-level results dirs (pre-restructure; remove after grace period)
+results_AL_box_prod/
+results_AL_box_prod_Np10k/
+results_AL_npconv/
+
+# Pending scaffolding (reorg in progress)
+_pending/
