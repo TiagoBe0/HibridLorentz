@@ -19,9 +19,11 @@ estocástica (SED).
 puede actuar como mecanismo físico que termalice ensambles de partículas
 bohmianas hacia la distribución $|\psi|^2$?
 
-**Estado actual**: Paper-1 listo para submission a *Foundations of Physics*
-o *European Physical Journal D*. Manuscrito unificado en
-`hybrid_paper_unified.tex`. Paper-2 (este nuevo plan) en fase de diseño.
+**Estado actual**: Paper-1 listo para submission. Paper-2 Fases 1–3 completas
+con auditoría metodológica (mayo 2026). Sweep canónico Np=10000 con corrección
+Miller-Madow ya en `results/paper2_fase3/prod_Np10000/`. Fase 4 (manuscrito)
+en curso: `papers/paper2/hybrid_AL_paper.tex` pendiente de actualización con
+los números post-auditoría.
 
 ---
 
@@ -67,34 +69,53 @@ asociado a la **radiación de reacción de Abraham–Lorentz**.
 
 ---
 
-## 3. Estructura del repo
+## 3. Estructura del repo (post-reorganización 2026-05-21)
 
 ```
-proyecto/
-├── CONTEXTO.md                     # este archivo
-├── README_results.md               # resumen de corridas (Paper-1)
+HibridLorentz/
+├── README.md, .gitignore
 │
-├── 📄 Paper-1 (estado: listo)
-│   └── hybrid_paper_unified.tex
+├── src/                              # código de simulación
+│   ├── paper2/                       # Fase 3 ALD (activo, post-auditoría)
+│   │   ├── bohm_zpf_AL_box.py
+│   │   ├── abraham_lorentz_classic.py
+│   │   ├── sympy_AL_derivation.py
+│   │   └── in.bohm_box
+│   └── paper1/                       # legacy
+│       ├── bohm_zpf_box.py, bohm_zpf_lammps.py
+│       ├── calibrate_zpf.py, in.bohm_zpf
 │
-├── 🔬 Simulaciones core
-│   ├── bohm_zpf_lammps.py          # doble rendija (Paper-1, Campaña 1)
-│   ├── bohm_zpf_box.py             # caja cerrada (Paper-1, Campaña 2)
-│   ├── in.bohm_zpf                 # input LAMMPS para doble rendija
-│   └── in.bohm_box                 # input LAMMPS para caja cerrada
+├── analysis/                         # analyze_AL, analyze_npconv, analyze_box, plot_publication
+├── slurm/                            # scripts SLURM (paths actualizados a src/paper2/, results/paper2_fase3/)
 │
-├── 📊 Análisis
-│   ├── analyze_relaxation.py       # ajuste τ_eff(λ) doble rendija
-│   ├── analyze_box.py              # ajuste τ_eff(λ) caja + bootstrap
-│   ├── calibrate_zpf.py            # calibración de amplitud A_zpf
-│   └── plot_publication.py         # figuras finales
+├── papers/{paper2,paper1}/
+├── refs/                             # boyer1975.pdf, valentini2005.pdf, boyer_1975_results.json
+├── docs/                             # este archivo, README_results.md, contexto.txt
 │
-└── 📦 Resultados (JSON, no tocar)
-    ├── results_lam0_*.json         # doble rendija (11 valores de λ)
-    ├── box_lam0_*.json             # caja, ω_max=15 (5 valores)
-    ├── box_lam0_*_om3.json         # caja, ω_max=3 (9 valores, alta stats)
-    └── stat_*_lam3_000.json        # test de estacionariedad φ₁₁
+├── figures/
+│   ├── paper2/   fig_AL_{D_scaling,hbar_curves,tau_comparison,Npconv,final_Np10k,threshold,stationarity_audit}.{pdf,png}
+│   ├── paper1/   fig{1..4}_*.{pdf,png}
+│   └── boyer/    boyer_*sweep.pdf, box_analysis_nr20.pdf
+│
+├── results/
+│   ├── paper2_fase3/
+│   │   ├── prod_Np5000/              # sweep original (Nr=50, sin Miller-Madow) — método ref.
+│   │   ├── prod_Np10000/             # sweep canónico (Nr=50, Miller-Madow)
+│   │   ├── npconv/Np{2500,5000,10000}/
+│   │   ├── AL_box/, AL_box_nelson/, AL_stat/
+│   └── paper1/
+│       ├── box/, box_om3/, run_10k/
+│
+└── logs/                             # SLURM stdout/stderr (gitignored)
 ```
+
+**Convenciones que aplicamos:**
+
+- Unidades adimensionales: $\hbar = m = 1$
+- Outputs JSON con schema fijo: `{lambda, n_particles, n_realizations, hbar_mean, hbar_std, hbar_all, D_ALD, D_ALD_std, D_ALD_per_real, hbar_bias_corrected, ...}`
+- Aleatoriedad reproducible: semillas explícitas (`np.random.default_rng(seed)`)
+- Backend matplotlib: `Agg` (corremos headless en Clementina)
+- Paralelización: SLURM arrays con `%5` throttle (5 nodos máximo)
 
 **Convenciones que aplicamos:**
 
@@ -219,77 +240,74 @@ $\psi$ sea solución de Schrödinger (auto-consistencia SED).
 **Tensión D_FDT vs D_Nelson:** D_FDT = ω₀/2 (depende de ω₀ para el OA). La universalidad
 D = ℏ/2m requiere integración sobre todos los modos ZPF → probado en Fase 3.
 
-#### Fase 3 — Simulación híbrida con ALD (mes 5–8) — EN CURSO
+#### Fase 3 — Simulación híbrida con ALD (mes 5–8) ✅ COMPLETA POST-AUDITORÍA
 
-**Entregable:** `bohm_zpf_AL_box.py` ✅ escrito. Corridas producción → Clementina.
+**Entregable:** `src/paper2/bohm_zpf_AL_box.py` + sweep canónico Np=10000 + auditoría metodológica.
 
-**Lo que está listo:**
-- [x] `bohm_zpf_AL_box.py` creado: ZPFField con `field_dot_at()`, `run_box_AL()`,
-      `run_stationary_AL()` con modos ZPF/ALD y Nelson-directo
-- [x] D_ALD corregido: `lam² · Σ Ak² · τ_c · Δt / 4` (el bug `Ak[0]` del Paper-1 queda atrás)
-- [x] Corrección LL: `vx += lam * (Ax + τ_rad · Ax_dot)` implementada
-- [x] Modo Nelson-directo: Itô noise + osmotic drift (sin kicks ZPF)
-- [x] Test de stacionariedad Nelson (D=0.5, ℏ=m=1):
-      - uniform_ic: H̄ = 1.27 → 0.12 (reducción 91%, Np=1000, Nr=5, t_final=8π) ✓
-      - born_ic: H̄ ≈ 0.12 → 0.11 (estable — |ψ₁₁|² es estacionario) ✓
-- [x] Valentini box baseline Nelson (λ=0, D=0.5):
-      τ_eff = 19.60 ≈ π²/D = 19.74 ✓ (confirmación independiente de Nelson D)
+**Pipeline final del driver:**
+- ZPFField con `field_at()` y `field_dot_at()` (LL correction).
+- D_ALD analítico `λ²·Σ A_k²·τ_c·Δt/4`, recolectado y promediado por realización.
+- `vx += lam·(A + τ_rad·Ȧ)` + osmotic drift `v_osm = D·∇ln|ψ|²` always-on.
+- **Miller–Madow correction** sobre $\bar H$: $(K_{eff}-1)/(2 N_p)$ (clave: removió un sesgo de ~13% en τ que disfrazaba la convergencia).
+- `V_CLIP = 200` sobre v_x, v_y antes del Euler (seguridad cerca de nodos).
+- JSON gana `hbar_bias_corrected`, `D_ALD_std`, `D_ALD_per_real`.
 
-**Hallazgo crítico — tensión D_ALD vs D_Nelson:**
-- D_ALD(λ=0.05, ω_max=3) = λ²·Σ_k Ak²·τ_c·Δt/4 = 2.24×10⁻⁵
-- D_Nelson = ℏ/2m = 0.5 (unidades ℏ=m=1)
-- Ratio: D_ALD / D_Nelson ≈ 4.5×10⁻⁵
-- τ_relax(ALD) = π²/D_ALD ≈ 440.000 unidades (iraccesible en t_final = 4π)
-- Coupling crítico: λ_c ≈ 7.5 donde D_ALD(λ_c) = D_Nelson
-- Para observar τ_ALD ~ π²/D en simulación: se necesita λ ≳ 5 (fuera del régimen perturbativo)
+**Auditoría completa (May 2026), 5 chequeos:**
 
-**Interpretación física:**
-- D_ALD ∝ λ²⟨ω²⟩ es dependiente de frecuencia → D_FDT ≠ D_Nelson (tensión de Fase 1)
-- El mecanismo Fokker-Planck SÍ funciona (confirmado con Nelson D)
-- La derivación ALD da la estructura correcta pero D pequeño → necesita tratamiento multi-modo continuo
-- Para Paper-2: presentar (1) mecanismo Nelson como resultado positivo, (2) D_ALD como derivación desde primeros principios, (3) tensión como open problem → da camino para trabajo futuro
+1. **Convergencia en Np** (sweep auxiliar Np ∈ {2500, 5000, 10000} × λ ∈ {0, 0.10}, Nr=50):
+   detectó τ no convergido bajo el estimador histograma → identificó el sesgo Miller-Madow como artefacto dominante.
+   Post-corrección: τ es plano en Np ✓ (escala 1/Np desaparece, R² 0.999).
 
-**Sweep ALD completo (Nr=5, Np=1000, ω_max=3, --no-lammps):**
+2. **Sweep canónico Np=10000** (SLURM 1218153, 10 tareas, exit 0, Nr=50, τ_rad=0.01, ω_max=3.0):
 
-| λ      | D_ALD   | τ_eff | Δ(1/τ)  | R²    |
-|--------|---------|-------|---------|-------|
-| 0.0000 | 0       | 8.72  |  0      | 0.914 |
-| 0.0200 | 4.3e-6  | 8.58  | +0.0018 | 0.930 |
-| 0.0300 | 9.8e-6  | 8.51  | +0.0028 | 0.922 |
-| 0.0500 | 2.7e-5  | 8.63  | +0.0012 | 0.929 |
-| 0.1000 | 1.1e-4  | 8.82  | -0.0013 | 0.935 |
-| 0.2000 | 4.3e-4  | 9.80  | -0.0126 | 0.914 |
+   | λ      | τ_eff ± σ      | Γ = 1/τ | ΔΓ        |
+   |--------|----------------|---------|-----------|
+   | 0.000  | 4.929 ± 0.014  | 0.2029  | 0         |
+   | 0.005  | 4.898 ± 0.015  | 0.2042  | +0.0013   |
+   | 0.010  | 4.899 ± 0.016  | 0.2041  | +0.0012   |
+   | 0.020  | 4.900 ± 0.019  | 0.2041  | +0.0012   |
+   | 0.030  | 4.899 ± 0.023  | 0.2041  | +0.0012   |
+   | 0.050  | 4.963 ± 0.026  | 0.2015  | −0.0014   |
+   | 0.070  | 5.065 ± 0.036  | 0.1974  | −0.0055   |
+   | 0.100  | 5.290 ± 0.053  | 0.1890  | −0.0139   |
+   | 0.150  | 5.809 ± 0.086  | 0.1721  | −0.0308   |
+   | 0.200  | 6.518 ± 0.116  | 0.1534  | −0.0495   |
 
-**C_fit (λ≤0.05) = +0.42** ← POSITIVO (Paper-1 sin ALD: C = −0.68)
-- Inversión de signo: ALD revierte la disrupción del ZPF en régimen perturbativo
-- λ≤0.05: τ decreasing → C > 0 (aceleración)
-- λ≥0.10: τ increasing → C < 0 (disrupción no perturbativa)
-- Ventana perturbativa confirmada: λ_cross ≈ 0.07–0.10
+3. **Modelo funcional — threshold gana por AIC** (vs cuártico puro y mixto λ²+λ⁴):
+   $$\Delta\Gamma(\lambda) = -C\,(\lambda^2 - \lambda_c^2)\,\theta(\lambda - \lambda_c)$$
+   - $C = 1.32 \pm 0.07$, $\lambda_c = 0.030 \pm 0.012$, χ²/dof = 1.19
+   - Fit naive `C·λ²` desde origen sobreestima la pendiente ~17% y tiene residual de +3.8σ a λ=0.20; el threshold queda en <1σ.
 
-**Scripts creados:** `analyze_AL.py`, `slurm_AL_sweep.sh`, `hybrid_AL_paper.tex`
+4. **Boyer 1975 benchmark** (`abraham_lorentz_classic.py`, `boyer_1975_results.json`):
+   con τ_rad=0.01 (el valor de Fase 3), `<x²>_stat = 0.5025` vs predicción exacta `0.500` → **0.5% off**. Friction ALD implementado correctamente ✓.
 
-**Pendiente:**
-- [x] Sweep exploratorio ALD (Nr=5, local) → C = +0.42 ✓
-- [ ] Corrida producción Clementina: Np=5000, Nr=50 → z-score ~7σ esperado
-- [ ] Figuras para el paper (fig_stationarity, fig_tau_comparison, fig_D_scaling)
+5. **Stationarity audit** (run_stationary_AL, λ=0.10, código corregido):
+   - born_ic: H̄ ≈ 0.08 ± 0.02 (estable, ruido O(1/Np²)) ✓
+   - uniform_ic: H̄ ≈ 1.16 → 1.23 en t=4π (sin relajación). Esperado: τ_drift = ε/(2D) ≈ 1200 ≫ t_final.
+   - **Interpretación clave**: τ_BdB ≈ 5 (box, mixing de 16 modos) ≪ τ_ZPF→Born ≈ 1200 (φ₁₁ solo). Los dos mecanismos están separados por dos órdenes de magnitud → ZPF NO puede impulsar la relajación rápida; sólo la disrumpe.
+
+**Scripts:** `src/paper2/bohm_zpf_AL_box.py`, `analysis/{analyze_AL,analyze_npconv}.py`, `slurm/slurm_AL_sweep_Np10k.sh`.
 
 #### Fase 4 — Paper-2 (mes 9–12) — EN CURSO
 
-**Archivo:** `hybrid_AL_paper.tex` (esqueleto LaTeX RevTeX4-2 creado)
-**Objetivo de revista**: *Physical Review Letters* (4 páginas)
+**Archivo:** `papers/paper2/hybrid_AL_paper.tex` (esqueleto LaTeX RevTeX4-2; pendiente actualizar con números canónicos post-auditoría).
+**Objetivo de revista**: *Physical Review Letters* (4 páginas) o *Foundations of Physics*.
 
 Estructura actual del skeleton:
 - Sec. I: Introduction (dBB, Valentini, ALD motivation)
 - Sec. II: ALD+FDT → Nelson osmotic (derivación, tensión D_ALD vs D_Nelson)
-- Sec. III: Boyer benchmark (figura placeholder)
-- Sec. IV: Valentini box (stationarity test + sweep con tabla de τ_eff)
-- Sec. V: Discussion (λ_c, continuum ZPF limit, outlook)
+- Sec. III: Boyer benchmark (validado: 0.5% off de la predicción exacta)
+- Sec. IV: Valentini box (stationarity test + sweep canónico Np=10000)
+- Sec. V: Discussion (threshold λ_c, separación de escalas τ_BdB ≪ τ_ZPF, outlook)
 - Sec. VI: Conclusions
 
-**Resultado central del Paper-2 (provisional):**
-ALD invierte el signo de C: de C = −0.68 (Paper-1, sin ALD) a C = +0.42 (ALD, perturbativo).
-Primer resultado numérico que muestra que la radiación de reacción ALD provee la
-corrección osmótica que activa la relajación Born-rule en la caja cerrada de Valentini.
+**Resultado central del Paper-2 (post-auditoría — DEFINITIVO):**
+
+El sweep canónico Np=10000 con Miller-Madow muestra que **la radiación de reacción ALD NO invierte la disrupción del ZPF**. La conclusión preliminar `C = +0.42` (basada en Nr=5 y H̄ sin bias-correction) era artefacto del estimador histograma. El resultado real es:
+
+$$\boxed{\;\Delta\Gamma(\lambda) = -C\,(\lambda^2 - \lambda_c^2)\,\theta(\lambda-\lambda_c),\quad C = 1.32 \pm 0.07,\quad \lambda_c = 0.030 \pm 0.012\;}$$
+
+Es decir: ZPF + ALD **disrumpe** la relajación bohmiana en la caja cerrada, con un umbral cinético λ_c por debajo del cual el efecto es indetectable. Esto contradice la intuición de la Peña-Cetto, y la razón estructural está cuantificada en la **separación de escalas τ_BdB ≈ 5 vs τ_ZPF→Born ≈ 1200**: la deriva osmótica que ALD provee es 200× demasiado lenta para competir con la dinámica BdB intrínseca, así que el efecto neto del ZPF es perturbar la relajación rápida en lugar de impulsar una nueva.
 
 ---
 
@@ -403,11 +421,49 @@ model* — `hybrid_paper_unified.tex`.
 
 ---
 
-## 10. Estado actual a una línea
+## 10. Evaluación de las simulaciones — qué salió bien y qué salió mal
 
-Paper-1 listo. Paper-2 Fases 1–4 en curso.
-Resultado clave: C_ALD = +0.42 > 0 (invierte C = −0.68 de Paper-1).
-Próximo: corridas producción en Clementina (Np=5000, Nr=50) + figuras + manuscrito.---
+### ✅ Lo que salió bien (resultados sólidos para el manuscrito)
+
+| Chequeo | Resultado | Implicación |
+|---|---|---|
+| **Boyer 1975 (Fase 2)** | `<x²>_stat = 0.5025` vs predicción `0.500` con τ_rad=0.01 (0.5% off) | El friction ALD está implementado correctamente. Test pasado limpio. |
+| **Convergencia Np** | Tras Miller-Madow, τ es plano en Np ∈ {2500, 5000, 10000} (1/Np scaling con R²=0.999 antes, plano después) | Datos canónicos a Np=10k son asintóticamente convergidos a <1%. |
+| **Stationarity born_ic** | H̄ ≈ 0.08 ± 0.02 estable (residuo O(1/Np²)) | Código preserva el equilibrio Born como debe. |
+| **Stationarity uniform_ic** | No relaja en t=4π, consistente con τ_drift ≈ 1200 calculado analíticamente | Comportamiento esperado; valida la estimación FDT. |
+| **Fit threshold** | C=1.32±0.07, λ_c=0.030±0.012, χ²/dof=1.19, AIC=13.5 (vs naive 20.0+) | Modelo funcional robusto y físicamente interpretable. |
+| **Significancia estadística** | Δτ(λ=0.20) = +1.59 con σ=0.12 → 13σ del baseline | Efecto físico no atribuible a ruido. |
+| **Acuerdo Np-extrapolación** | τ₀ canónico 4.929 ± 0.014 vs extrapolación 1/Np 4.94 | <1% de match. Pipeline cerrado. |
+
+### ⚠️ Lo que salió mal o requiere matiz crítico
+
+| Hallazgo | Severidad | Acción |
+|---|---|---|
+| **El "C = +0.42" de la corrida preliminar (Nr=5) era artefacto del estimador H̄** sin Miller-Madow + muy poca estadística | 🔴 Crítico | Resuelto: descartado, reemplazado por C = −1.32 (con la convención del paper) en el sweep canónico. |
+| **El programa lSED de la Peña-Cetto NO se valida**: agregar ALD no genera la relajación Born-rule que ellos predicen — sigue siendo disruptiva, igual que el Paper-1 sin ALD | 🟡 Resultado físico | Resignificar el manuscrito: pasa de "ALD activa relajación" a "ALD no es suficiente; la disrupción persiste". Igualmente publicable, pero con narrativa opuesta. |
+| **D_ALD ≪ D_Nelson** (ratio ~10⁻⁵ en régimen perturbativo): la deriva osmótica que ALD provee es 200× más lenta que τ_BdB | 🟡 Limitación conocida | Mencionar como motivación para Fase 4: tratar el continuo ZPF (no 32 modos discretos) puede cerrar la brecha. |
+| **El régimen λ ≤ λ_c es indetectable** dentro del ruido: el efecto físico solo emerge a partir de λ ≈ 0.05 | 🟢 Aceptable | Threshold λ_c queda como predicción cuantitativa del modelo, no como debilidad. |
+| **Sesgo residual O(1/N²)** del estimador: a λ chico hay un offset +0.0013 sistemático en ΔΓ que no se cancela con Miller-Madow | 🟢 Menor | Discutir en apéndice; desaparece en el fit threshold (intercept forzado a 0). |
+| **Comparación cruzada Paper-1 vs Paper-2** tiene un offset metodológico ≈ 1.1 en τ₀ (distinto code path, distinto Nr) | 🟢 Cosmético | Tratar como artefacto de pipeline en el texto; el resultado se sostiene **dentro** de cada sweep. |
+
+### 🎯 Veredicto general
+
+**Las simulaciones son metodológicamente sólidas** tras la auditoría:
+1. Friction ALD: validado independientemente (Boyer).
+2. Estimador H̄: corregido (Miller-Madow), convergencia confirmada.
+3. Sweep canónico: 10/10 tareas exit 0, fits robustos, errores cuantificados.
+
+**El resultado físico no es el que esperábamos** (la Peña-Cetto), pero **es un hallazgo legítimo y publicable**: la radiación de reacción ALD, aplicada como Landau-Lifshitz a la corriente bohmiana, no genera la deriva osmótica de Nelson en magnitud suficiente para termalizar a |ψ|² en la caja cerrada. La conclusión cuantitativa robusta es un coeficiente de disrupción C = 1.32 con threshold λ_c = 0.030.
+
+**El paper tiene una historia clara**: ZPF puro disrumpe → agregar ALD no salva el cuadro → la separación de escalas τ_BdB ≪ τ_ZPF explica por qué → trabajo futuro: ZPF continuo / sistemas con BdB más lento donde D_ALD podría dominar.
+
+---
+
+## 11. Estado actual a una línea
+
+Paper-1 listo (sin cambios). Paper-2 Fases 1–3 completas con auditoría;
+resultado canónico C = 1.32 ± 0.07, λ_c = 0.030 ± 0.012 (threshold).
+Próximo: actualizar `hybrid_AL_paper.tex` con números post-auditoría, push de los 2 commits de reorg, decidir revista objetivo.---
 name: ahorro-tokens
 description: Reglas para reducir tokens en Claude Code
 ---
